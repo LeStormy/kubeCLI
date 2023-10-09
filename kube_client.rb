@@ -21,7 +21,7 @@ class KubeClient
     'exec' => -> (namespace, args) { exec(namespace, args) }
   }
 
-  NAMESPACES = ["default", "app", "bpri", "bpce", "rakuten", "safran"]
+  NAMESPACES = ["default", "app", "app2", "app3"]
 
   class << self
     def deploy(namespace)
