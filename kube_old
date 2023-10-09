@@ -1,0 +1,99 @@
+#!/usr/bin/env ruby
+
+# Define the available high-level commands
+COMMANDS = {
+  'migrate' => 'Apply a migration manifest',
+  'deploy' => 'Apply a deployment manifest',
+  'scale' => 'Scale a deployment',
+  'console' => 'Connect to a shell on a pod and run bin/rails c',
+  'initialize' => 'Initialize a new namespace with an app stack'
+  # Add more high-level commands as needed
+}
+
+# Function to apply a manifest file to a namespace
+def apply_manifest(manifest_file, namespace)
+  puts "Applying #{manifest_file} to namespace #{namespace}..."
+  system("kubectl apply -f #{manifest_file} -n #{namespace}")
+end
+
+# Function to scale a deployment in a namespace
+def scale_deployment(namespace)
+  # Implement your deployment scaling logic here
+  puts "Scaling deployment in namespace #{namespace}..."
+  # Example: system("kubectl scale deployment -n #{namespace} my-deployment --replicas=3")
+end
+
+# Function to start a console on a pod in a namespace
+def start_console(namespace)
+  # Implement your pod console logic here
+  puts "Starting console in namespace #{namespace}..."
+  # Example: system("kubectl exec -it -n #{namespace} pod-name -- bin/rails c")
+end
+
+# Function to initialize a new namespace with an app stack
+def initialize_namespace(namespace)
+  existing_namespaces = `kubectl get namespaces -o custom-columns=:metadata.name --no-headers`.split("\n")
+  if existing_namespaces.include?(namespace)
+    print "Namespace '#{namespace}' already exists. Initializing it will be destructive. Continue? (y/N): "
+    confirmation = $stdin.gets.chomp.downcase
+    unless confirmation == 'y'
+      puts "Initialization canceled for namespace #{namespace}."
+      exit(0)
+    end
+  end
+
+  puts "Initializing namespace '#{namespace}' with an app stack..."
+  # Perform the necessary kubectl apply commands to create the app stack in the new namespace
+  # Example: system("kubectl apply -f initialize-stack.yml -n #{namespace}")
+
+  puts "Namespace '#{namespace}' initialized successfully!"
+
+  # Dynamically update the list of predefined namespaces
+  predefined_namespaces = existing_namespaces + [namespace]
+  File.write('predefined_namespaces.txt', predefined_namespaces.join("\n"))
+end
+
+# Load the predefined namespaces from a file
+predefined_namespaces = File.exist?('predefined_namespaces.txt') ? File.read('predefined_namespaces.txt').split("\n") : []
+
+# Check if the user provided any command-line arguments
+if ARGV.empty?
+  puts "Usage: kube [namespace] command [args]"
+  puts "Available commands:"
+  COMMANDS.each do |cmd, description|
+    puts "  #{cmd}: #{description}"
+  end
+  exit(1)
+end
+
+# Check for the optional namespace argument
+namespace = ARGV.shift
+
+# Check for the command argument
+command = ARGV.shift
+unless command && COMMANDS.key?(command)
+  puts "Invalid command. Available commands:"
+  COMMANDS.each do |cmd, description|
+    puts "  #{cmd}: #{description}"
+  end
+  exit(1)
+end
+
+# Execute the action for the selected command and namespace(s)
+if predefined_namespaces.empty? && command != 'initialize'
+  puts "No predefined namespaces found. Initialize a new namespace first."
+  exit(1)
+end
+
+namespaces_to_run = []
+
+if namespace == 'all'
+  namespaces_to_run = predefined_namespaces
+else
+  namespaces_to_run << namespace
+end
+
+namespaces_to_run.each do |ns|
+  action = action_mappings[command]
+  action.call(ns) if action
+end
