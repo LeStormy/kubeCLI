@@ -24,12 +24,14 @@ class KubeCommands
     def setup(cluster)
       # apply NGINX Ingress Controller
       system("#{kubectl(cluster)} apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml")
+      # apply Cert-Manager
+      system("#{kubectl(cluster)} apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.1/cert-manager.yaml")
       # create regcred secret
       system("#{kubectl(cluster)} create secret generic regcred --from-file=.dockerconfigjson=#{full_config_path}/secrets/docker-config.json --type=kubernetes.io/dockerconfigjson")
       # apply rails secret
       system("#{kubectl(cluster)} apply -f #{full_config_path}/secrets/rails-secrets.yml")
       # apply config map
-
+      system("#{kubectl(cluster)} apply -f #{full_config_path}/config-map.yml") 
       # apply postgres
       system("#{kubectl(cluster)} apply -f #{full_config_path}/postgres.yml") 
       # apply postgres service
@@ -39,15 +41,17 @@ class KubeCommands
       # apply redis service
       system("#{kubectl(cluster)} apply -f #{full_config_path}/redis-service.yml")
       # apply Ingress Resource
-  
+      system("#{kubectl(cluster)} apply -f #{full_config_path}/ingress.yml")
+      # apply ClusterIssuer
+      system("#{kubectl(cluster)} apply -f #{full_config_path}/cluster-issuer.yml")  
       # apply Certficate
-  
+      system("#{kubectl(cluster)} apply -f #{full_config_path}/certificate.yml")  
       # apply web deployment
       system("#{kubectl(cluster)} apply -f #{full_config_path}/web-deployment.yml")
       # apply worker deployment
       system("#{kubectl(cluster)} apply -f #{full_config_path}/worker-deployment.yml")
       # apply web service
-
+      system("#{kubectl(cluster)} apply -f #{full_config_path}/web-service.yml")
       # apply terminal
       system("#{kubectl(cluster)} apply -f #{full_config_path}/terminal.yml")
       # apply initializer
