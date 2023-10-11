@@ -4,6 +4,7 @@ require_relative 'kube_commands'
 
 class KubeClient
   DOCKER_HUB_UNAME = 'lestormy'
+  HOME_PATH = '/Users/stormy'
   PROJECT_PATH = '/Users/stormy/Work/mooveo-backend'
   CONFIG_PATH = 'config/kube/infrastructure'
   APP = 'klara'
@@ -14,8 +15,8 @@ class KubeClient
     'deploy' => 'Apply a deployment manifest',
     'delete' => 'Delete a kubectl object [args: manifest name]',
     'scale' => 'Scale a deployment [arg: manifest name]',
-    'build-setup' => 'Build a new docker image and setup a new namespace with an app stack',
-    'setup' => 'Setup a new namespace with an app stack',
+    'build-setup' => 'Build a new docker image and setup a new cluster with an app stack',
+    'setup' => 'Setup a new cluster with an app stack',
     'console' => 'Connect to a shell on a pod and run bin/rails c',
     'add-job' => 'Apply a cron job manifest [arg: manifest name]',
     'delete-job' => 'Delete a cron job [arg: manifest name]',
@@ -23,72 +24,72 @@ class KubeClient
   }
 
   COMMANDS_MAPPING = {
-    'migrate' => -> (namespace, args) { migrate(namespace) },
-    'deploy' => -> (namespace, args) { deploy(namespace) },
-    'delete' => -> (namespace, args) { delete(namespace, args) },
-    'scale' => -> (namespace, args) { scale(namespace, args) },
-    'build-setup' => -> (namespace, args) { build_setup(namespace) },
-    'setup' => -> (namespace, args) { setup(namespace) },
-    'console' => -> (namespace, args) { console(namespace) },
-    'add-job' => -> (namespace, args) { add_job(namespace, args) },
-    'delete-job' => -> (namespace, args) { delete_job(namespace, args) },
-    'exec' => -> (namespace, args) { exec(namespace, args) }
+    'migrate' => -> (cluster, args) { migrate(cluster) },
+    'deploy' => -> (cluster, args) { deploy(cluster) },
+    'delete' => -> (cluster, args) { delete(cluster, args) },
+    'scale' => -> (cluster, args) { scale(cluster, args) },
+    'build-setup' => -> (cluster, args) { build_setup(cluster) },
+    'setup' => -> (cluster, args) { setup(cluster) },
+    'console' => -> (cluster, args) { console(cluster) },
+    'add-job' => -> (cluster, args) { add_job(cluster, args) },
+    'delete-job' => -> (cluster, args) { delete_job(cluster, args) },
+    'exec' => -> (cluster, args) { exec(cluster, args) }
   }
 
-  NAMESPACES = ["default", "app", "app2", "app3"]
+  CLUSTERS = ["app", "app2", "app3"]
 
   class << self
-    def deploy(namespace)
+    def deploy(cluster)
       if yes_no_prompt
         KubeCommands.dockerize_app(PROJECT_PATH, DOCKER_HUB_UNAME, APP, VERSION)
-        KubeCommands.apply(namespace, "web-deployment")
-        KubeCommands.apply(namespace, "worker-deployment")
+        KubeCommands.apply(cluster, "web-deployment")
+        KubeCommands.apply(cluster, "worker-deployment")
       end
     end
 
-    def delete(namespace, args)
+    def delete(cluster, args)
       if yes_no_prompt
-        KubeCommands.delete(namespace, args.first)
+        KubeCommands.delete(cluster, args.first)
       end
     end
 
-    def migrate(namespace)
-      KubeCommands.apply(namespace, "migrate")
+    def migrate(cluster)
+      KubeCommands.apply(cluster, "migrate")
     end
 
-    def scale(namespace, args)
-      KubeCommands.scale(namespace, args)
+    def scale(cluster, args)
+      KubeCommands.scale(cluster, args)
     end
 
-    def build_setup(namespace)
+    def build_setup(cluster)
       if yes_no_prompt
         KubeCommands.dockerize_app(PROJECT_PATH, DOCKER_HUB_UNAME, APP, VERSION)
-        KubeCommands.setup(namespace)
+        KubeCommands.setup(cluster)
       end
     end
 
-    def setup(namespace)
+    def setup(cluster)
       if yes_no_prompt
-        KubeCommands.setup(namespace)
+        KubeCommands.setup(cluster)
       end
     end
 
-    def add_job(namespace, args)
-      KubeCommands.apply(namespace, args.first)
+    def add_job(cluster, args)
+      KubeCommands.apply(cluster, args.first)
     end
 
-    def delete_job(namespace, args)
+    def delete_job(cluster, args)
       if yes_no_prompt
-        KubeCommands.delete(namespace, args.first)
+        KubeCommands.delete(cluster, args.first)
       end
     end
 
-    def console(namespace)
-      KubeCommands.exec(namespace, ["bin/rails", "c"])
+    def console(cluster)
+      KubeCommands.exec(cluster, ["bin/rails", "c"])
     end
 
-    def exec(namespace, args)
-      KubeCommands.exec(namespace, args)
+    def exec(cluster, args)
+      KubeCommands.exec(cluster, args)
     end
 
     private
