@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
-require './kube_client.rb'
+require_relative 'kube_client'
+require_relative 'kube_commands'
 
 if ARGV.empty?
   puts "Usage: kube [namespace] command [args]"

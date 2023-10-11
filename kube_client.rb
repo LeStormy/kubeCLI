@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require './kube_commands.rb'
+require_relative 'kube_commands'
 
 class KubeClient
   DOCKER_HUB_UNAME = 'lestormy'
@@ -12,7 +12,7 @@ class KubeClient
   COMMANDS = {
     'migrate' => 'Apply a migration manifest',
     'deploy' => 'Apply a deployment manifest',
-    'delete' => 'Delete a kubectl object [args: manifest name]'
+    'delete' => 'Delete a kubectl object [args: manifest name]',
     'scale' => 'Scale a deployment [arg: manifest name]',
     'build-setup' => 'Build a new docker image and setup a new namespace with an app stack',
     'setup' => 'Setup a new namespace with an app stack',
