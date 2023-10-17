@@ -23,7 +23,7 @@ end
 command = ARGV.shift
 unless command && KubeClient::COMMANDS.key?(command)
   puts "Invalid command. Available commands:"
-  COMMANDS.each do |cmd, description|
+  KubeClient::COMMANDS.each do |cmd, description|
     puts "  #{cmd}: #{description}"
   end
   exit(1)
