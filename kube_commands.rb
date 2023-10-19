@@ -6,8 +6,11 @@ require 'colorize'
 class KubeCommands
   class << self
     def apply(cluster, manifest)
-      updated_file = AutoVersion.write_image_version_in_manifest("#{full_config_path}/#{manifest}.yml")
-      system("#{kubectl(cluster)} apply -f #{updated_file.path}")
+      updated_file = AutoVersion.write_image_version_in_manifest("#{full_config_path}/#{manifest}")
+      result = system("#{kubectl(cluster)} apply -f #{updated_file.path}")
+      if !result
+        warning_string "Error while applying #{manifest}"
+      end
     end
 
     def scale(cluster, args)
@@ -15,8 +18,8 @@ class KubeCommands
       system("#{kubectl(cluster)} scale -f #{full_config_path}/#{manifest}.yml --replicas=#{replicas}")
     end
 
-    def delete
-      updated_file = AutoVersion.write_image_version_in_manifest("#{full_config_path}/#{manifest}.yml")
+    def delete(cluster, manifest)
+      updated_file = AutoVersion.write_image_version_in_manifest("#{full_config_path}/#{manifest}")
       system("#{kubectl(cluster)} delete -f #{updated_file.path}")
     end
 
@@ -25,6 +28,8 @@ class KubeCommands
     end
 
     def setup(cluster)
+      info_string "Setting up cluster #{cluster}..."
+      system"#{kubectl(cluster)} create configmap clusterdata --from-literal=cluster_name=#{cluster}"
       
       info_string "Downloading and creating NGINX Ingress Controller..."
       system("#{kubectl(cluster)} apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml")
@@ -32,12 +37,12 @@ class KubeCommands
       info_string "Downloading and creating Cert Manager..."
       system("#{kubectl(cluster)} apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.1/cert-manager.yaml")
      
-     
-     
+      info_string "Waiting for Cert Manager API to be available..."
+      system("cmctl check api --wait=2m")
       
-      info_string "Downloading and creating Postgres Operator..."
-      
-      
+
+
+      # info_string "Downloading and creating Postgres Operator..."
       
       
       
@@ -45,68 +50,68 @@ class KubeCommands
       system("#{kubectl(cluster)} create secret generic regcred --from-file=.dockerconfigjson=#{full_config_path}/secrets/docker-config.json --type=kubernetes.io/dockerconfigjson")
       
       info_string "Creating Rails secrets..."
-      apply("secrets/rails-secrets.yml")
+      apply(cluster, "secrets/rails-secrets.yml")
       
       info_string "Creating Postgres secrets..."
-      apply("secrets/postgres-secrets.yml")
+      apply(cluster, "secrets/postgres-secrets.yml")
       
-      info_string "Creating TLS secrets..."
-      system("#{kubectl(cluster)} create secret tls tls-secret \
+      info_string "Creating TLS secret..."
+      result = system("#{kubectl(cluster)} create secret tls tls-secret \
         --key /Users/stormy/Work/certif/klara.key \
         --cert /Users/stormy/Work/certif/klara.crt")
       
-        info_string "Applying config map..."
-      apply("config-map.yml") 
+      # info_string "Applying config map..."
+      # apply(cluster, "config-map.yml") 
+
+      info_string "Creating Postgres pod..."
+      apply(cluster, "postgres.yml")
       
-      info_string "Applying KubeGres configuration..."
-      apply("kubegres.yml")
+      info_string "Creating Postgres service..."
+      apply(cluster, "postgres-service.yml")
       
       info_string "Creating Redis pod..."
-      apply("redis.yml")
+      apply(cluster, "redis.yml")
       
       info_string "Creating Redis service..."
-      apply("redis-service.yml")
+      apply(cluster, "redis-service.yml")
       
       info_string "Creating Ingress Resource..."
-      apply("ingress.yml")
+      apply(cluster, "ingress.yml")
       
       info_string "Creating Cluster Issuer..."
-      apply("cluster-issuer.yml")  
+      apply(cluster, "cluster-issuer.yml")  
       
       info_string "Applying Certificate configuration..."
-      apply("certificate.yml")  
+      apply(cluster, "certificate.yml")  
       
       info_string "Deploying Web Application (web pods)..."
-      apply("web-deployment.yml")
+      apply(cluster, "web-deployment.yml")
       
       info_string "Deploying Web Application (worker pods)..."
-      apply("worker-deployment.yml")
+      apply(cluster, "worker-deployment.yml")
       
       info_string "Deploying Web Service..."
-      apply("web-service.yml")
+      apply(cluster, "web-service.yml")
       
       info_string "Creating Application Terminal pod..."
-      apply("terminal.yml")
-      
-      info_string "Running DB Initializer Script..."
-      apply("db-initializer.yml")
-      system("#{kubectl(cluster)} wait --for=condition=complete job/db-initializer")
+      apply(cluster, "terminal.yml")
       
       info_string "Running DB Loader Script..."
-      apply("db-loader.yml")
-      system("#{kubectl(cluster)} wait --for=condition=complete job/db-loader")
+      apply(cluster, "db-loader.yml")
+      system("#{kubectl(cluster)} wait --timeout=5m --for=condition=complete job/db-loader")
       
       info_string "Running DB Migrate Script..."
-      apply("db-migrate.yml")
-      system("#{kubectl(cluster)} wait --for=condition=complete job/db-migrate")
+      apply(cluster, "db-migrate.yml")
+      system("#{kubectl(cluster)} wait --timeout=5m --for=condition=complete job/db-migrate")
+   
       # apply postgres backup cron job
   
       # apply applicative cron jobs
   
       # monitoring stack
   
-      # Get IP from Ingress Controller
-      # set DNS with IP
+      blue_string "Your application is now deployed"
+      blue_string "Get IP from NGINX Ingress Controller and set DNS with IP"
     end
 
     def destroy(cluster)
@@ -114,29 +119,38 @@ class KubeCommands
       system("#{kubectl(cluster)} delete -f https://raw.githubusercontent.com/reactive-tech/kubegres/v1.16/kubegres.yaml")
       system("#{kubectl(cluster)} delete -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.1/cert-manager.yaml")
       system("#{kubectl(cluster)} delete secret regcred")
-      delete("/secrets/rails-secrets.yml")
-      delete("/secrets/postgres-secrets.yml")
-      delete("/config-map.yml") 
-      delete("/redis.yml")
-      delete("/redis-service.yml")
-      delete("/ingress.yml")
-      delete("/cluster-issuer.yml")  
-      delete("/certificate.yml")  
-      delete("/web-deployment.yml")
-      delete("/worker-deployment.yml")
-      delete("/web-service.yml")
-      delete("/terminal.yml")
-      delete("/initializer.yml")
+      system("#{kubectl(cluster)} delete secret tls-secret")
+      delete(cluster, "secrets/rails-secrets.yml")
+      delete(cluster, "secrets/postgres-secrets.yml")
+      # delete(cluster, "config-map.yml") 
+      delete(cluster, "postgres.yml")
+      delete(cluster, "postgres-service.yml")
+      delete(cluster, "redis.yml")
+      delete(cluster, "redis-service.yml")
+      delete(cluster, "ingress.yml")
+      delete(cluster, "cluster-issuer.yml")  
+      delete(cluster, "certificate.yml")  
+      delete(cluster, "web-deployment.yml")
+      delete(cluster, "worker-deployment.yml")
+      delete(cluster, "web-service.yml")
+      delete(cluster, "terminal.yml")
+      delete(cluster, "db-loader.yml")
+      delete(cluster, "db-migrate.yml")
     end
 
     def exec(cluster, args)
       system("#{kubectl(cluster)} exec -it pod/terminal -- #{args.join(" ")}")
     end
 
-    def dockerize_app(project_path, docker_hub_uname, app, version)
-      system("cd #{project_path}")
-      system("docker buildx build --platform linux/amd64 -t #{docker_hub_uname}/#{app}:#{version} . --build-arg RAILS_MASTER_KEY=`cat config/credentials/production.key`")
-      system("docker push #{docker_hub_uname}/#{app}:#{version}")
+    def dockerize_app(project_path, docker_hub_uname, app)
+      version = File.read("#{project_path}/version")
+      Dir.chdir(project_path) do
+        system("docker buildx build --platform linux/amd64 -t \
+          #{docker_hub_uname}/#{app}:#{version} . \
+          --build-arg RAILS_MASTER_KEY=`cat config/credentials/production.key`
+        ")
+        system("docker push #{docker_hub_uname}/#{app}:#{version}")
+      end
     end
 
     def full_config_path
@@ -149,6 +163,14 @@ class KubeCommands
 
     def info_string(str)
       puts str.green.bold
+    end
+
+    def warning_string(str)
+      puts str.yellow.bold
+    end
+
+    def blue_string(str)
+      puts str.cyan.bold
     end
   end
 end

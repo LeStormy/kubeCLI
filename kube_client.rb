@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require_relative 'kube_commands'
-require_relative 'yaml_handler'
+require_relative 'auto_version'
 require 'colorize'
 
 class KubeClient
@@ -27,7 +27,7 @@ class KubeClient
   }
 
   COMMANDS_MAPPING = {
-    'colo' => -> (cluster, args) { test_colorize },
+    'colo' => -> (cluster, args) { test_colorize(cluster) },
     'migrate' => -> (cluster, args) { migrate(cluster) },
     'deploy' => -> (cluster, args) { deploy(cluster) },
     'delete' => -> (cluster, args) { delete(cluster, args) },
@@ -44,17 +44,20 @@ class KubeClient
   CLUSTERS = ["app", "app2", "app3"]
 
   class << self
-    def test_colorize
+    def test_colorize(cluster)
       puts "This is a test".green.bold
-      AutoVersion.write_image_version_in_manifest("#{PROJECT_PATH}/#{CONFIG_PATH}/web-deployment.yml")
+      AutoVersion.write_image_version_in_manifest("#{PROJECT_PATH}/#{CONFIG_PATH}/secrets/rails-secrets.yml")
     end
 
     def deploy(cluster)
       if yes_no_prompt
-        AutoVersion.upgrade_version
-        KubeCommands.dockerize_app(PROJECT_PATH, DOCKER_HUB_UNAME, APP)
-        KubeCommands.apply(cluster, "web-deployment")
-        KubeCommands.apply(cluster, "worker-deployment")
+        # AutoVersion.upgrade_version
+        # KubeCommands.dockerize_app(PROJECT_PATH, DOCKER_HUB_UNAME, APP)
+        KubeCommands.apply(cluster, "web-deployment.yml")
+        KubeCommands.apply(cluster, "worker-deployment.yml")
+        system("kubectl rollout status deploy/klara-web-deployment")
+        migrate(cluster)
+        AutoVersion.clear_temp_folder
       end
     end
 
@@ -77,18 +80,24 @@ class KubeClient
         AutoVersion.upgrade_version
         KubeCommands.dockerize_app(PROJECT_PATH, DOCKER_HUB_UNAME, APP)
         KubeCommands.setup(cluster)
+        AutoVersion.clear_temp_folder
       end
     end
 
     def setup(cluster)
       if yes_no_prompt
         KubeCommands.setup(cluster)
+        AutoVersion.clear_temp_folder
       end
     end
 
     def destroy(cluster)
       if yes_no_prompt
-        KubeCommands.destroy(cluster)
+        begin
+          KubeCommands.destroy(cluster)
+        rescue
+        end
+        AutoVersion.clear_temp_folder
       end
     end
 
